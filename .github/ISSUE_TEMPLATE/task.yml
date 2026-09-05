@@ -1,0 +1,25 @@
+name: 小タスク（Task）
+description: 仕様を書くほどでない小さい作業。バグ修正・リファクタ・設定変更など。
+title: "[task] "
+labels: ["task"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **挙動を変える変更は使わない。** 仕様が要るものは「仕様（Spec）」を使う。
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: 内容
+      description: 何をするか。
+    validations:
+      required: true
+
+  - type: textarea
+    id: done
+    attributes:
+      label: 完了条件
+      description: 何をもって完了とするか。
+    validations:
+      required: true

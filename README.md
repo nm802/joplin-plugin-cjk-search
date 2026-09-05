@@ -6,6 +6,10 @@ Joplin's built-in search picks its code path from the **query's** script, not th
 
 This plugin maintains its own bigram index in a separate SQLite file and searches through a single path, regardless of language.
 
+## License
+
+MIT. See `LICENSE`.
+
 ## Status
 
 Requirements and design are fixed; implementation has not started.
@@ -63,7 +67,3 @@ Normalization is **NFKC + casefold**, applied identically at index time and quer
 id:   io.github.nm802.cjk-search
 name: CJK Search
 ```
-
-## License
-
-Not yet decided.
