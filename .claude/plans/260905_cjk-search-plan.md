@@ -1,12 +1,12 @@
 ---
-title: joplin-ngram-search
+title: joplin-plugin-cjk-search
 date: 2026-09-05
 type: ToDo
 status: open
 notion_page_id: 3d2cfcf4-f7df-818c-ba80-ea3016c1d3fc
 ---
 
-# joplin-ngram-search
+# joplin-plugin-cjk-search
 
 Joplin の検索が日本語・日英混在テキストで取りこぼす問題を、独自 n-gram 索引を持つプラグインで解決する。
 

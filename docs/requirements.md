@@ -1,4 +1,4 @@
-# 要件定義: joplin-ngram-search
+# 要件定義: joplin-plugin-cjk-search
 
 Joplin の検索が日本語・日英混在テキストで取りこぼす問題を、独自 n-gram 索引を持つプラグインで解決する。
 
