@@ -64,7 +64,7 @@ joplin.plugins.register({
 
     const dataDir = await joplin.plugins.dataDir();
     const dbPath = `${dataDir}/index.sqlite`;
-    index = new SearchIndex(await Sqlite3Db.open(dbPath));
+    index = new SearchIndex(await Sqlite3Db.open(joplin.require('sqlite3'), dbPath));
     await index.create();
 
     const forced = await joplin.settings.value('cjkSearch.rebuildOnStart');

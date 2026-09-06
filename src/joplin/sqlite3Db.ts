@@ -1,4 +1,3 @@
-import joplin from 'api';
 import type { Db } from '../core/db';
 
 /**
@@ -8,8 +7,9 @@ import type { Db } from '../core/db';
  * モジュールを同梱することはできず、Joplin が提供するものを使う決まりになっている
  * （`sqlite3` と `fs-extra` の2つだけが提供される）。
  *
- * 開発機の Raspberry Pi では `sqlite3` の arm64 / Node 22 向けビルド済みバイナリが
- * 無いため、コア側のテストは node:sqlite で回している。こちらは実機でしか動かない。
+ * モジュールの取得は呼び出し側から渡す。プラグイン実行時は `joplin.require('sqlite3')`、
+ * テストでは同じ版（Joplin が同梱するのは 5.1.6）を直接 require する。こうしておかないと
+ * この層だけ実機でしか動かせなくなる。
  */
 export class Sqlite3Db implements Db {
   private db: any;
@@ -18,8 +18,7 @@ export class Sqlite3Db implements Db {
     this.db = db;
   }
 
-  public static async open(path: string): Promise<Sqlite3Db> {
-    const sqlite3 = joplin.require('sqlite3');
+  public static async open(sqlite3: any, path: string): Promise<Sqlite3Db> {
     const db = await new Promise<any>((resolve, reject) => {
       const handle = new sqlite3.Database(path, (error: Error | null) => {
         if (error) reject(error);
