@@ -64,6 +64,47 @@ run as phrase queries. An AND of the bigrams would match `国産の日産車` fo
 
 Normalization is **NFKC + casefold**, applied identically at index time and query time. Joplin's own `normalizeText_()` normalizes the query but matches it against the un-normalized `notes` table, which is why fullwidth text is currently unreachable.
 
+## Install
+
+Download `publish/io.github.nm802.cjk-search.jpl` from a release or build it yourself:
+
+```
+npm install
+npm run dist
+```
+
+Then in Joplin: **Tools → Options → Plugins → the gear icon → Install from file**, pick the
+`.jpl`, and restart Joplin.
+
+The index is built in the background on first start. Until it finishes, searches return
+whatever is indexed so far.
+
+## Versioning
+
+The version shown in the search dialog is the one that is actually running. Use it to
+confirm which build Joplin has loaded after replacing the `.jpl`.
+
+```
+npm run version        # print the current version
+npm run bump patch     # 0.1.1 -> 0.1.2 (also: minor, major)
+npm run dist           # builds and writes publish/<id>-<version>.jpl
+```
+
+`npm run dist` produces two files: `<id>.jpl` (the name Joplin expects) and
+`<id>-<version>.jpl` (a copy that keeps the version in the filename).
+
+## Shortcut
+
+**`Ctrl+Shift+F`** opens this plugin's search dialog. It is unbound in Joplin's default
+keymap on Windows, so nothing is taken away.
+
+`Ctrl+P` is deliberately left alone: it still opens Joplin's own Goto Anything, so the two
+can be compared side by side on the same query. `Ctrl+Shift+P` is not used because it is
+Joplin's command palette.
+
+To swap them, edit **Tools → Options → Keyboard Shortcuts**. Joplin will not let two
+commands share an accelerator, so clear `Goto Anything` first.
+
 ## Plugin metadata
 
 ```

@@ -1,6 +1,6 @@
 {
   "name": "joplin-plugin-cjk-search",
-  "version": "0.0.0",
+  "version": "0.1.5",
   "private": true,
   "description": "Language-agnostic full-text search for Joplin",
   "license": "MIT",
@@ -10,13 +10,29 @@
   },
   "scripts": {
     "test": "NODE_OPTIONS=--no-warnings jest",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "dist": "webpack --env joplin-plugin-config=buildMain && webpack --env joplin-plugin-config=buildExtraScripts && webpack --env joplin-plugin-config=createArchive && node tools/version.js stamp",
+    "updateVersion": "webpack --env joplin-plugin-config=updateVersion",
+    "bump": "node tools/version.js bump",
+    "version": "node tools/version.js"
   },
   "devDependencies": {
     "@types/jest": "^30.0.0",
     "@types/node": "^24.0.0",
+    "chalk": "^4.1.2",
+    "copy-webpack-plugin": "^11.0.0",
+    "fs-extra": "^11.2.0",
+    "glob": "^8.1.0",
     "jest": "^30.0.0",
+    "sqlite3": "^5.1.6",
+    "tar": "^6.2.1",
     "ts-jest": "^29.4.0",
-    "typescript": "^5.9.0"
-  }
+    "ts-loader": "^9.5.1",
+    "typescript": "^5.9.0",
+    "webpack": "^5.95.0",
+    "webpack-cli": "^5.1.4"
+  },
+  "keywords": [
+    "joplin-plugin"
+  ]
 }

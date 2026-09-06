@@ -91,6 +91,10 @@ export class SearchIndex {
 
   /** テスト専用。索引に古いバージョンが書かれている状況を作る。 */
   public async setVersionForTest(analyzerVersion: number, schemaVersion: number): Promise<void> {
+    await this.setVersion(analyzerVersion, schemaVersion);
+  }
+
+  private async setVersion(analyzerVersion: number, schemaVersion: number): Promise<void> {
     await this.db.run('UPDATE meta SET value = ? WHERE key = ?', [
       analyzerVersion,
       'analyzer_version',
@@ -100,6 +104,12 @@ export class SearchIndex {
 
   public async close(): Promise<void> {
     await this.db.close();
+  }
+
+  /** 索引を空にし、バージョンを現在の実装に合わせる。次の sync() で全件が入り直す。 */
+  public async reset(): Promise<void> {
+    await this.db.run('DELETE FROM notes_ng', []);
+    await this.setVersion(ANALYZER_VERSION, SCHEMA_VERSION);
   }
 
   /**
