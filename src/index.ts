@@ -97,10 +97,12 @@ joplin.plugins.register({
             既定はブロック要素なので幅が iframe に合ってしまい、中身をいくら広くしても
             測定値が変わらない。max-content にして中身の幅が伝わるようにする。 */
          #joplin-plugin-content { width: max-content; }
+         /* 実寸は dialog.js が外の窓の大きさから決める。ここは読み込み直後の暫定値。 */
          #cjk-search-root { width: 720px; }
          #cjk-search-input { width: 100%; box-sizing: border-box; padding: 8px 10px; font-size: 15px; }
          #cjk-search-status { font-size: 11px; opacity: 0.6; margin: 6px 2px; min-height: 14px; }
-         #cjk-search-results { list-style: none; margin: 0; padding: 0; height: 420px; overflow-y: auto; }
+         /* 高さは中身なり。件数が減れば縮み、増えれば上限まで伸びる。 */
+         #cjk-search-results { list-style: none; margin: 0; padding: 0; max-height: 420px; overflow-y: auto; }
          .cjk-search-item { padding: 6px 10px; border-radius: 4px; cursor: pointer; }
          .cjk-search-item.selected { background: rgba(128, 160, 255, 0.28); }
          .cjk-search-title { font-size: 14px; }

@@ -19,6 +19,28 @@
 		const status = document.getElementById('cjk-search-status');
 		if (!form || !input || !noteIdField || !list || !status) return;
 
+		// ダイアログの寸法は「iframe の中で測った実寸」が外へ伝わって決まる（片方向）。
+		// 外の窓の大きさは iframe からは見えないので、親が読めるときは親の幅を、
+		// 読めないとき（webview 隔離が有効だと同一オリジンでなくなる）は画面の幅を使う。
+		const outerSize = () => {
+			try {
+				if (window.parent && window.parent.innerWidth) {
+					return { width: window.parent.innerWidth, height: window.parent.innerHeight };
+				}
+			} catch (error) {
+				/* 隔離時は参照できない。画面の大きさで代用する。 */
+			}
+			return { width: window.screen.availWidth, height: window.screen.availHeight };
+		};
+
+		const applySize = () => {
+			const outer = outerSize();
+			const width = Math.max(560, Math.min(1100, Math.round(outer.width * 0.6)));
+			const height = Math.max(200, Math.min(600, Math.round(outer.height * 0.5)));
+			document.getElementById('cjk-search-root').style.width = `${width}px`;
+			list.style.maxHeight = `${height}px`;
+		};
+
 		let composing = false;
 		let selected = 0;
 		let results = [];
@@ -118,6 +140,8 @@
 			}
 		});
 
+		applySize();
+		window.addEventListener('resize', applySize);
 		input.focus();
 		// 起動直後に索引の状態を出す。無反応に見えないようにするため。
 		void run();
