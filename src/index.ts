@@ -4,6 +4,7 @@ import { SearchIndex } from './core/searchIndex';
 import { Sqlite3Db } from './joplin/sqlite3Db';
 import { fetchAllNotes } from './joplin/noteSource';
 import { snippetFor } from './core/snippet';
+import manifest from './manifest.json';
 
 const COMMAND = 'cjkSearch.open';
 const DIALOG = 'cjkSearch.dialog';
@@ -21,6 +22,13 @@ interface NoteMeta {
 }
 
 const meta = new Map<string, NoteMeta>();
+
+/** 空クエリのときにダイアログへ出す状態。無反応と索引未完了を見分けられるようにする。 */
+function statusHint(): string {
+  const version = (manifest as { version: string }).version;
+  if (indexing) return `v${version} — indexing… (${meta.size} notes so far)`;
+  return `v${version} — ${meta.size} notes indexed`;
+}
 
 async function loadNotes() {
   const notes = await fetchAllNotes(joplin.data as never);
@@ -80,16 +88,28 @@ joplin.plugins.register({
     }
 
     const dialog = await joplin.views.dialogs.create(DIALOG);
+    // レイアウトは HTML に直接埋める。別ファイルの CSS に依存させると、読み込みが
+    // 間に合わないまま大きさが決まってダイアログが潰れる。
     await joplin.views.dialogs.setHtml(
       dialog,
-      `<div id="cjk-search-root">
+      `<style>
+         #cjk-search-root { width: 680px; }
+         #cjk-search-input { width: 100%; box-sizing: border-box; padding: 8px 10px; font-size: 15px; }
+         #cjk-search-status { font-size: 11px; opacity: 0.6; margin: 6px 2px; min-height: 14px; }
+         #cjk-search-results { list-style: none; margin: 0; padding: 0; height: 420px; overflow-y: auto; }
+         .cjk-search-item { padding: 6px 10px; border-radius: 4px; cursor: pointer; }
+         .cjk-search-item.selected { background: rgba(128, 160, 255, 0.28); }
+         .cjk-search-title { font-size: 14px; }
+         .cjk-search-snippet { font-size: 11px; opacity: 0.65; margin-top: 2px;
+           white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+       </style>
+       <div id="cjk-search-root">
          <input id="cjk-search-input" type="text" autocomplete="off" placeholder="Search notes" />
          <div id="cjk-search-status"></div>
          <ul id="cjk-search-results"></ul>
        </div>`,
     );
     await joplin.views.dialogs.addScript(dialog, './dialog/dialog.js');
-    await joplin.views.dialogs.addScript(dialog, './dialog/dialog.css');
     await joplin.views.dialogs.setButtons(dialog, [{ id: 'close', title: 'Close' }]);
 
     let pendingNoteId: string | null = null;
@@ -100,7 +120,9 @@ joplin.plugins.register({
       const msg = message as { type: string; query?: string; noteId?: string };
       if (msg.type === 'search') {
         const query = msg.query ?? '';
-        if (!index || query.trim() === '') return { results: [], total: 0 };
+        if (!index || query.trim() === '') {
+          return { results: [], total: 0, hint: statusHint() };
+        }
         const ids = await index.search(query);
         const results = ids.slice(0, DISPLAY_LIMIT).map((id) => {
           const note = meta.get(id);

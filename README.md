@@ -79,6 +79,20 @@ Then in Joplin: **Tools → Options → Plugins → the gear icon → Install fr
 The index is built in the background on first start. Until it finishes, searches return
 whatever is indexed so far.
 
+## Versioning
+
+The version shown in the search dialog is the one that is actually running. Use it to
+confirm which build Joplin has loaded after replacing the `.jpl`.
+
+```
+npm run version        # print the current version
+npm run bump patch     # 0.1.1 -> 0.1.2 (also: minor, major)
+npm run dist           # builds and writes publish/<id>-<version>.jpl
+```
+
+`npm run dist` produces two files: `<id>.jpl` (the name Joplin expects) and
+`<id>-<version>.jpl` (a copy that keeps the version in the filename).
+
 ## Shortcut
 
 **`Ctrl+Shift+F`** opens this plugin's search dialog. It is unbound in Joplin's default
