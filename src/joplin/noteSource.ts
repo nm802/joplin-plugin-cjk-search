@@ -1,14 +1,15 @@
 import type { Note } from '../core/searchIndex';
+import type { NoteSource } from '../core/indexUpdater';
 
 /**
  * `joplin.data` のうち、この層が使う部分だけ。
  * Joplin の型に直接依存させないことで、モックを渡してヘッドレスに検証できる。
+ *
+ * 戻り値は経路で形が違う（一覧はページ、単体はノートそのもの）ので `unknown` で受けて
+ * 呼び出し側で絞る。
  */
 export interface DataApi {
-  get(
-    path: string[],
-    query?: Record<string, unknown>,
-  ): Promise<{ items: RawNote[]; has_more: boolean }>;
+  get(path: string[], query?: Record<string, unknown>): Promise<unknown>;
 }
 
 interface RawNote {
@@ -17,6 +18,18 @@ interface RawNote {
   body: string;
   updated_time: number;
 }
+
+interface Page {
+  items: RawNote[];
+  has_more: boolean;
+}
+
+const toNote = (item: RawNote): Note => ({
+  id: item.id,
+  title: item.title ?? '',
+  body: item.body ?? '',
+  updatedTime: item.updated_time,
+});
 
 /**
  * 索引に必要な項目。`updated_time` を取り忘れると差分適用が常に全件更新になる
@@ -55,23 +68,54 @@ export async function fetchAllNotes(api: DataApi): Promise<Note[]> {
   let page = 1;
 
   for (;;) {
-    const response = await api.get(['notes'], {
+    const response = (await api.get(['notes'], {
       fields: FIELDS,
       limit: PAGE_SIZE,
       page,
       ...ORDER,
-    });
+    })) as Page;
     for (const item of response.items) {
       if (seen.has(item.id)) continue;
       seen.add(item.id);
-      notes.push({
-        id: item.id,
-        title: item.title ?? '',
-        body: item.body ?? '',
-        updatedTime: item.updated_time,
-      });
+      notes.push(toNote(item));
     }
     if (!response.has_more) return notes;
     page++;
   }
+}
+
+/** 突き合わせ用。本文を運ばないので全件でも軽い。 */
+const STAMP_FIELDS = ['id', 'updated_time'];
+
+/** `IndexUpdater` へ渡す取り寄せ口。 */
+export function joplinNoteSource(api: DataApi): NoteSource {
+  return {
+    async get(id: string): Promise<Note | null> {
+      try {
+        const item = (await api.get(['notes', id], { fields: FIELDS })) as RawNote | null;
+        return item && item.id ? toNote(item) : null;
+      } catch (error) {
+        // 消えたノートを取りに行くと本体は 404 を投げる。削除イベントが来ない経路が
+        // あるので、これは失敗ではなく「消えた」として扱う。
+        if (/not found/i.test(error instanceof Error ? error.message : String(error))) return null;
+        throw error;
+      }
+    },
+
+    async stamps(): Promise<Map<string, number>> {
+      const out = new Map<string, number>();
+      let page = 1;
+      for (;;) {
+        const response = (await api.get(['notes'], {
+          fields: STAMP_FIELDS,
+          limit: PAGE_SIZE,
+          page,
+          ...ORDER,
+        })) as Page;
+        for (const item of response.items) out.set(item.id, item.updated_time);
+        if (!response.has_more) return out;
+        page++;
+      }
+    },
+  };
 }
