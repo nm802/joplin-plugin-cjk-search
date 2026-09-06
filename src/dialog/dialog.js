@@ -12,10 +12,12 @@
 	}
 
 	docReady(function () {
+		const form = document.getElementById('cjk-search-form');
 		const input = document.getElementById('cjk-search-input');
+		const noteIdField = document.getElementById('cjk-search-note-id');
 		const list = document.getElementById('cjk-search-results');
 		const status = document.getElementById('cjk-search-status');
-		if (!input || !list || !status) return;
+		if (!form || !input || !noteIdField || !list || !status) return;
 
 		let composing = false;
 		let selected = 0;
@@ -40,7 +42,7 @@
 				}
 				li.addEventListener('click', () => {
 					selected = i;
-					void open();
+					submitSelected();
 				});
 				list.appendChild(li);
 			});
@@ -75,13 +77,19 @@
 			timer = setTimeout(run, 80);
 		};
 
-		const open = async () => {
+		/** 選択中のノート id をフォームへ載せる。ダイアログはこの値ごと閉じる。 */
+		const setSelectedNoteId = () => {
 			const item = results[selected];
-			if (!item) return;
-			await webviewApi.postMessage({ type: 'open', noteId: item.id });
-			// ノートを開くにはダイアログを閉じる必要がある。ボタンバーの Close を押す。
-			const button = document.querySelector('.dialog-modal-layer button, .button-bar button');
-			if (button) button.click();
+			noteIdField.value = item ? item.id : '';
+			return !!item;
+		};
+
+		// プラグインからダイアログを閉じる API は無い。フォームを submit すると
+		// Joplin が form-submit を受けて閉じ、そのときフォームの中身が open() の
+		// 戻り値に入る。ノート id はその経路で渡す。
+		const submitSelected = () => {
+			if (!setSelectedNoteId()) return;
+			form.requestSubmit();
 		};
 
 		input.addEventListener('compositionstart', () => {
@@ -104,8 +112,9 @@
 				selected = Math.max(selected - 1, 0);
 				render();
 			} else if (event.key === 'Enter') {
-				event.preventDefault();
-				void open();
+				// Joplin 自身が document の keydown で Enter を拾って submit する。
+				// ここでは値を載せるだけにして、伝播を止めない。止めると閉じなくなる。
+				setSelectedNoteId();
 			}
 		});
 

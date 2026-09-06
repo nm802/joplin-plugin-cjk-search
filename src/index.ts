@@ -93,7 +93,11 @@ joplin.plugins.register({
     await joplin.views.dialogs.setHtml(
       dialog,
       `<style>
-         #cjk-search-root { width: 680px; }
+         /* Joplin はこの要素の大きさを測ってダイアログの寸法を決める（UserWebviewIndex.js）。
+            既定はブロック要素なので幅が iframe に合ってしまい、中身をいくら広くしても
+            測定値が変わらない。max-content にして中身の幅が伝わるようにする。 */
+         #joplin-plugin-content { width: max-content; }
+         #cjk-search-root { width: 720px; }
          #cjk-search-input { width: 100%; box-sizing: border-box; padding: 8px 10px; font-size: 15px; }
          #cjk-search-status { font-size: 11px; opacity: 0.6; margin: 6px 2px; min-height: 14px; }
          #cjk-search-results { list-style: none; margin: 0; padding: 0; height: 420px; overflow-y: auto; }
@@ -103,16 +107,24 @@ joplin.plugins.register({
          .cjk-search-snippet { font-size: 11px; opacity: 0.65; margin-top: 2px;
            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
        </style>
-       <div id="cjk-search-root">
-         <input id="cjk-search-input" type="text" autocomplete="off" placeholder="Search notes" />
-         <div id="cjk-search-status"></div>
-         <ul id="cjk-search-results"></ul>
-       </div>`,
+       <form id="cjk-search-form" name="cjk">
+         <div id="cjk-search-root">
+           <input id="cjk-search-input" type="text" autocomplete="off" placeholder="Search notes" />
+           <input id="cjk-search-note-id" type="hidden" name="noteId" value="" />
+           <div id="cjk-search-status"></div>
+           <ul id="cjk-search-results"></ul>
+         </div>
+       </form>`,
     );
     await joplin.views.dialogs.addScript(dialog, './dialog/dialog.js');
-    await joplin.views.dialogs.setButtons(dialog, [{ id: 'close', title: 'Close' }]);
-
-    let pendingNoteId: string | null = null;
+    // ボタンの id には意味がある。Enter による submit は id が ok/yes/confirm/submit の
+    // ボタンがあるときだけ、Escape による dismiss は cancel/no/reject があるときだけ働く
+    // （UserWebviewDialog.tsx の findSubmitButton / findDismissButton）。
+    // 独自の id を付けるとどちらのキーも無反応になる。
+    await joplin.views.dialogs.setButtons(dialog, [
+      { id: 'ok', title: 'Open' },
+      { id: 'cancel', title: 'Close' },
+    ]);
 
     // joplin.views.dialogs には onMessage が無い。ダイアログもパネルと同じ view ハンドルで
     // 動くので、パネル側の onMessage に同じハンドルを渡して受ける。
@@ -134,10 +146,6 @@ joplin.plugins.register({
         });
         return { results, total: ids.length };
       }
-      if (msg.type === 'open') {
-        pendingNoteId = msg.noteId ?? null;
-        return { ok: true };
-      }
       return { ok: false };
     });
 
@@ -146,9 +154,9 @@ joplin.plugins.register({
       label: 'CJK Search',
       iconName: 'fas fa-search',
       execute: async () => {
-        pendingNoteId = null;
-        await joplin.views.dialogs.open(dialog);
-        if (pendingNoteId) await joplin.commands.execute('openNote', pendingNoteId);
+        const result = await joplin.views.dialogs.open(dialog);
+        const noteId = (result?.formData as { cjk?: { noteId?: string } })?.cjk?.noteId;
+        if (result?.id === 'ok' && noteId) await joplin.commands.execute('openNote', noteId);
       },
     });
 
