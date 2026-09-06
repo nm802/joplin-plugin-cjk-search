@@ -212,6 +212,10 @@ export class SearchIndex {
    * 件数の上限は設けない。上限は表示側で扱う（docs/requirements.md FR-4）。
    */
   public async search(query: string): Promise<string[]> {
+    // 末尾が空白で終わっていなければ、最後の語はまだ打っている途中とみなす（FR-2b）。
+    // 判定は正規化前に行う。normalize() が trim() で末尾の空白を落とすため、
+    // 正規化後では「打鍵中」と「確定」が区別できない。JS の \s は全角空白を含む。
+    const typing = !/\s$/.test(query);
     const words = normalize(query)
       .split(' ')
       .filter((w) => w !== '');
@@ -221,8 +225,9 @@ export class SearchIndex {
     let matched: Set<string> | null = null;
     let titleMatched: Set<string> | null = null;
 
-    for (const word of words) {
-      const anyRows = await this.matchRows(word, 'all');
+    for (const [i, word] of words.entries()) {
+      const prefix = typing && i === words.length - 1;
+      const anyRows = await this.matchRows(word, 'all', prefix);
       const anyIds = new Set(anyRows.map((r) => r.note_id));
       matched = matched === null ? anyIds : intersect(matched, anyIds);
       if (matched.size === 0) return [];
@@ -236,7 +241,7 @@ export class SearchIndex {
       }
 
       const titleIds = new Set(
-        (await this.matchRows(word, 'title')).map((r) => r.note_id),
+        (await this.matchRows(word, 'title', prefix)).map((r) => r.note_id),
       );
       titleMatched = titleMatched === null ? titleIds : intersect(titleMatched, titleIds);
     }
@@ -255,8 +260,14 @@ export class SearchIndex {
     });
   }
 
-  /** 1語を、指定した範囲（タイトルのみ / タイトルと本文）に対して引く。 */
-  private async matchRows(word: string, scope: 'title' | 'all'): Promise<Row[]> {
+  /**
+   * 1語を、指定した範囲（タイトルのみ / タイトルと本文）に対して引く。
+   *
+   * `prefix` を立てると、フレーズの末尾トークンを前方一致にする。ラテン語は語まるごとが
+   * 1トークンなので、これが無いと途中まで打った状態で0件になる。CJK の bigram は全て
+   * 2文字なので、前方一致にしても一致する集合は変わらない。
+   */
+  private async matchRows(word: string, scope: 'title' | 'all', prefix = false): Promise<Row[]> {
     const { tok } = analyze(word);
     if (tok.length === 0) return [];
 
@@ -271,7 +282,7 @@ export class SearchIndex {
     const terms = fields.flatMap(([tokCol, tailCol]) =>
       single
         ? [`${tokCol}:${quote(word)} *`, `${tailCol}:${quote(word)}`]
-        : [`${tokCol}:${quote(tok.join(' '))}`],
+        : [`${tokCol}:${quote(tok.join(' '))}${prefix ? ' *' : ''}`],
     );
 
     return this.db.all<Row>(
