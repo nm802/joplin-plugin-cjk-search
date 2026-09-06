@@ -1,6 +1,6 @@
 {
   "name": "joplin-plugin-cjk-search",
-  "version": "0.1.5",
+  "version": "0.1.7",
   "private": true,
   "description": "Language-agnostic full-text search for Joplin",
   "license": "MIT",

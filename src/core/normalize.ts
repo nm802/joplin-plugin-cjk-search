@@ -43,26 +43,23 @@ function stripInlineMarkup(text: string): string {
 }
 
 /**
- * 行を1本のテキストに畳む。
+ * 行を1本のテキストに畳む。行のあいだには必ず空白を入れる。
  *
- * 段落内の折り返し改行は除去して前後を連結する。そうしないと
- * `屋根の防水\n工事` を `防水工事` で引けない。
- * ただしブロック境界（空行、見出し・リスト・引用の開始行）では連結しない。
- * 無条件に連結すると、隣り合う箇条書きが繋がって存在しない語ができる。
+ * **改行は語の区切りとして扱う。日本語でも連結しない**（docs/requirements.md FR-3）。
+ * markdown は段落内の単独改行を空白として描画するので、連結すると索引が本体の
+ * 表示と食い違う。`昨日は雨\n傘を買った` から `雨傘` が引けるような、存在しない
+ * 複合語もできる。誤ヒットは利用者の側から取り除けない。
+ *
+ * 記号を落とした位置は別扱いで、空白を入れない（stripInlineMarkup）。
+ * `屋根の**防水**工事` は `屋根の防水工事` のままにする。
  */
 function joinLines(lines: string[]): string {
-  const isBlank = lines.map((l) => l.trim() === '');
-  const isBlock = lines.map((l) => BLOCK_START.test(l));
-  const stripped = lines.map((l) => stripBlockMarkers(l));
-
   let out = '';
-  for (let i = 0; i < stripped.length; i++) {
-    if (isBlank[i]) continue;
-    if (out !== '') {
-      const boundary = isBlank[i - 1] || isBlock[i] || isBlock[i - 1];
-      if (boundary) out += ' ';
-    }
-    out += stripped[i];
+  for (const line of lines) {
+    const stripped = stripBlockMarkers(line);
+    if (stripped.trim() === '') continue;
+    if (out !== '') out += ' ';
+    out += stripped;
   }
   return out;
 }

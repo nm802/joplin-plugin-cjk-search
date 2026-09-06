@@ -48,8 +48,13 @@ test('コードスパンの中身は保持される', () => {
   expect(normalize('`notes_fts` を見る')).toBe('notes_fts を見る');
 });
 
-test('段落内の改行は除去され前後が連結される', () => {
-  expect(normalize('屋根の防水\n工事を実施')).toBe('屋根の防水工事を実施');
+// issue #15: 改行は語の区切り。日本語でも空白を入れる
+test('段落内の改行は空白になる', () => {
+  expect(normalize('屋根の防水\n工事を実施')).toBe('屋根の防水 工事を実施');
+});
+
+test('ラテン語の行またぎも空白で区切られる', () => {
+  expect(normalize('The quick brown\nfox jumps over')).toBe('the quick brown fox jumps over');
 });
 
 test('空行をまたぐ場合は連結されず区切られる', () => {
