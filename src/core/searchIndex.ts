@@ -105,8 +105,13 @@ export class SearchIndex {
   /**
    * 渡されたノート集合に索引を合わせる。
    *
-   * 全件構築は 2750ノートで 68秒かかるため、起動のたびに走らせない。
+   * 全件構築は 2750ノートで 69秒かかるため、起動のたびに走らせない。
    * `updated_time` を突き合わせ、変わったものだけ入れ直す。
+   *
+   * 比較は「新しいか」ではなく「違うか」で行う。Joplin 側が正であって、索引はそれを
+   * 写すもの。JEX の再取り込み・バックアップからの復元・時計のずれた端末からの同期で
+   * `updated_time` は巻き戻る。新しい方だけを取ると、索引が古い本文を持ったまま
+   * 永久に直らない（次回以降は時刻が一致して素通りする）。
    */
   public async sync(notes: Iterable<Note>): Promise<SyncReport> {
     const known = new Map<string, number>();
@@ -127,7 +132,7 @@ export class SearchIndex {
         if (indexed === undefined) {
           await this.put(note);
           report.added++;
-        } else if (note.updatedTime > indexed) {
+        } else if (note.updatedTime !== indexed) {
           await this.put(note);
           report.updated++;
         } else {

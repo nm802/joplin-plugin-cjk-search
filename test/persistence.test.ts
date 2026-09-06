@@ -87,15 +87,23 @@ test('更新日時が新しいノートは入れ直される', async () => {
   expect(await index.search('防水')).toEqual(['n3']);
 });
 
-test('更新日時が古いノートは無視される', async () => {
+test('更新日時が巻き戻ったノートも入れ直される', async () => {
+  // Joplin 側が正であって、索引はそれを写すもの。JEX の再取り込み・バックアップからの
+  // 復元・時計のずれた端末からの同期で updated_time は巻き戻る。新しい方だけを取ると
+  // 索引が古い本文を持ったまま永久に直らない（次回以降は時刻が一致して素通りする）。
   const index = await open();
   await index.sync(FIVE());
 
   const next = FIVE();
   next[2] = note('n3', '屋根の防水を実施した', T0 - DAY);
-  expect((await index.sync(next)).updated).toBe(0);
-  expect(await index.search('防水')).toEqual([]);
-  expect(await index.search('点検')).toEqual(['n3']);
+  expect(await index.sync(next)).toEqual({
+    added: 0,
+    updated: 1,
+    removed: 0,
+    unchanged: 4,
+  });
+  expect(await index.search('防水')).toEqual(['n3']);
+  expect(await index.search('点検')).toEqual([]);
 });
 
 test('渡されなかったノートは索引から消える', async () => {
