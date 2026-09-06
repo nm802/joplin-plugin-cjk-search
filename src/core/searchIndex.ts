@@ -5,11 +5,27 @@ import { analyze } from './analyze';
 /** FTS5 の文字列リテラルは二重引用符で囲み、中の `"` は重ねて escape する。 */
 const quote = (s: string) => `"${s.replace(/"/g, '""')}"`;
 
+/**
+ * 正規化・トークン化の出力が変わったら上げる。上げ忘れると、古い索引を使い続けて
+ * 静かに取りこぼす。
+ */
+export const ANALYZER_VERSION = 1;
+
+/** 索引の列構成が変わったら上げる。 */
+export const SCHEMA_VERSION = 1;
+
 export interface Note {
   id: string;
   title: string;
   body: string;
   updatedTime: number;
+}
+
+export interface SyncReport {
+  added: number;
+  updated: number;
+  removed: number;
+  unchanged: number;
 }
 
 interface Row {
@@ -40,6 +56,101 @@ export class SearchIndex {
          title_tok, title_tail, tok, tail,
          tokenize='ascii')`,
     );
+    await this.db.exec(
+      'CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value INTEGER NOT NULL)',
+    );
+    const rows = await this.db.all<{ n: number }>('SELECT count(*) AS n FROM meta');
+    if (rows[0].n === 0) {
+      await this.db.run('INSERT INTO meta(key, value) VALUES (?, ?)', [
+        'analyzer_version',
+        ANALYZER_VERSION,
+      ]);
+      await this.db.run('INSERT INTO meta(key, value) VALUES (?, ?)', [
+        'schema_version',
+        SCHEMA_VERSION,
+      ]);
+    }
+  }
+
+  public async version(): Promise<{ analyzerVersion: number; schemaVersion: number }> {
+    const rows = await this.db.all<{ key: string; value: number }>('SELECT key, value FROM meta');
+    const get = (key: string) => rows.find((r) => r.key === key)?.value ?? -1;
+    return { analyzerVersion: get('analyzer_version'), schemaVersion: get('schema_version') };
+  }
+
+  /**
+   * 索引が実装と食い違っていないか。
+   *
+   * 食い違っていても**自動では作り直さない。** 全件構築は 2750ノートで 68秒かかるので、
+   * 走らせるかどうかは呼び出し側が確認を取って決める。
+   */
+  public async needsRebuild(): Promise<boolean> {
+    const { analyzerVersion, schemaVersion } = await this.version();
+    return analyzerVersion !== ANALYZER_VERSION || schemaVersion !== SCHEMA_VERSION;
+  }
+
+  /** テスト専用。索引に古いバージョンが書かれている状況を作る。 */
+  public async setVersionForTest(analyzerVersion: number, schemaVersion: number): Promise<void> {
+    await this.db.run('UPDATE meta SET value = ? WHERE key = ?', [
+      analyzerVersion,
+      'analyzer_version',
+    ]);
+    await this.db.run('UPDATE meta SET value = ? WHERE key = ?', [schemaVersion, 'schema_version']);
+  }
+
+  public async close(): Promise<void> {
+    await this.db.close();
+  }
+
+  /**
+   * 渡されたノート集合に索引を合わせる。
+   *
+   * 全件構築は 2750ノートで 69秒かかるため、起動のたびに走らせない。
+   * `updated_time` を突き合わせ、変わったものだけ入れ直す。
+   *
+   * 比較は「新しいか」ではなく「違うか」で行う。Joplin 側が正であって、索引はそれを
+   * 写すもの。JEX の再取り込み・バックアップからの復元・時計のずれた端末からの同期で
+   * `updated_time` は巻き戻る。新しい方だけを取ると、索引が古い本文を持ったまま
+   * 永久に直らない（次回以降は時刻が一致して素通りする）。
+   */
+  public async sync(notes: Iterable<Note>): Promise<SyncReport> {
+    const known = new Map<string, number>();
+    for (const row of await this.db.all<{ note_id: string; updated_time: number }>(
+      'SELECT note_id, updated_time FROM notes_ng',
+    )) {
+      known.set(row.note_id, row.updated_time);
+    }
+
+    const report: SyncReport = { added: 0, updated: 0, removed: 0, unchanged: 0 };
+    const seen = new Set<string>();
+
+    await this.db.exec('BEGIN');
+    try {
+      for (const note of notes) {
+        seen.add(note.id);
+        const indexed = known.get(note.id);
+        if (indexed === undefined) {
+          await this.put(note);
+          report.added++;
+        } else if (note.updatedTime !== indexed) {
+          await this.put(note);
+          report.updated++;
+        } else {
+          report.unchanged++;
+        }
+      }
+      for (const noteId of known.keys()) {
+        if (!seen.has(noteId)) {
+          await this.remove(noteId);
+          report.removed++;
+        }
+      }
+      await this.db.exec('COMMIT');
+    } catch (error) {
+      await this.db.exec('ROLLBACK');
+      throw error;
+    }
+    return report;
   }
 
   /** ノート1件を索引に入れる。既に入っていれば置き換える。 */
