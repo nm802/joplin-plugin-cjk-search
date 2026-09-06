@@ -10,13 +10,10 @@ This plugin maintains its own bigram index in a separate SQLite file and searche
 
 MIT. See `LICENSE`.
 
-## Status
-
-Requirements and design are fixed; implementation has not started.
+## Documents
 
 - `docs/requirements.md` — requirements, measured evidence, protection tests
 - `docs/evernote-research.md` — how Evernote/Lucene solve the same problem, and the resulting design decisions
-- `.claude/plans/260905_cjk-search-plan.md` — implementation plan
 
 ## What the built-in search misses
 
@@ -53,11 +50,17 @@ The FTS4 `simple` tokenizer treats any character below U+0080 that is not an ASC
 
 ## Approach
 
-Two analyzers, selectable in settings.
+A single analyzer, with the same pipeline as Lucene's `CJKAnalyzer`: split on script
+boundaries, fold width (NFKC), fold case, form overlapping bigrams over CJK runs, keep
+Latin words whole. This is a reimplementation, not a port; Lucene itself is Java and
+unavailable to a Joplin plugin.
 
-**`cjk` (default)** — the same pipeline as Lucene's `CJKAnalyzer`: split on script boundaries, fold width (NFKC), fold case, form overlapping bigrams over CJK runs, keep Latin words whole. This is a reimplementation, not a port; Lucene itself is Java and unavailable to a Joplin plugin.
+Bigramming every character of the normalized text was measured and rejected: `PI` would
+match `API`, which costs precision for no recall the CJK path does not already provide.
 
-**`full-bigram`** — bigrams over every character of the normalized text. Also matches inside Latin words (`PI` finds `API`). Costs about 24% more index space.
+Tokens are indexed into FTS5 with positions, and queries of two characters or more are
+run as phrase queries. An AND of the bigrams would match `国産の日産車` for the query
+`国産車`; positions are what make the match exact.
 
 Normalization is **NFKC + casefold**, applied identically at index time and query time. Joplin's own `normalizeText_()` normalizes the query but matches it against the un-normalized `notes` table, which is why fullwidth text is currently unreachable.
 
