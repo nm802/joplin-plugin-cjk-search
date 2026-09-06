@@ -11,6 +11,42 @@
 		}
 	}
 
+	// 窓の上端からダイアログ上端までの割合。本体の Ctrl+P に合わせている。
+	const TOP_RATIO = 0.1;
+
+	/**
+	 * ダイアログを窓の上端寄りに置く。
+	 *
+	 * 上下位置は親側の flex コンテナで決まっていて、iframe の中からは出せない値になる。
+	 * 土台の `.dialog-modal-layer` は `align-items: flex-start` だが、プラグイン用の
+	 * `.user-webview-dialog` が `center` で上書きしている（本体 gui/styles/）。
+	 *
+	 * プラグインの webview は既定では隔離されておらず（`featureFlag.plugins.
+	 * isolatePluginWebViews` の既定は false）、iframe の src が `file://` で親と同一
+	 * オリジンになるため `frameElement` から親の要素へ辿れる。隔離が有効な環境では
+	 * `frameElement` が null になるので、そのときは本体の中央寄せのままにする。
+	 * 見た目が変わるだけで、検索は同じに動く。
+	 *
+	 * **docReady を待たずに、スクリプトが読まれた時点で1回掛ける。** 待つと中央に置かれた
+	 * ダイアログが1フレーム見えてから上へ飛ぶ。DOM 要素は触らないので、この時点で走らせて
+	 * 差し支えない。
+	 */
+	let topAnchored = false;
+	const anchorToTop = () => {
+		try {
+			const frame = window.frameElement;
+			const dialog = frame && frame.closest('dialog');
+			if (!dialog) return;
+			dialog.style.alignItems = 'flex-start';
+			dialog.style.paddingTop = `${Math.round(TOP_RATIO * 100)}vh`;
+			topAnchored = true;
+		} catch (error) {
+			/* 隔離時は参照できない。中央寄せのままにする。 */
+		}
+	};
+
+	anchorToTop();
+
 	docReady(function () {
 		const form = document.getElementById('cjk-search-form');
 		const input = document.getElementById('cjk-search-input');
@@ -33,37 +69,8 @@
 			return { width: window.screen.availWidth, height: window.screen.availHeight };
 		};
 
-		// 窓の上端からダイアログ上端までの割合。本体の Ctrl+P に合わせている。
-		const TOP_RATIO = 0.1;
 		// 結果リスト以外がダイアログで占める高さ（入力欄・状態行・枠の余白・ボタンバー）。
 		const CHROME_HEIGHT = 200;
-
-		/**
-		 * ダイアログを窓の上端寄りに置く。
-		 *
-		 * 上下位置は親側の flex コンテナで決まっていて、iframe の中からは出せない値になる。
-		 * 土台の `.dialog-modal-layer` は `align-items: flex-start` だが、プラグイン用の
-		 * `.user-webview-dialog` が `center` で上書きしている（本体 gui/styles/）。
-		 *
-		 * プラグインの webview は既定では隔離されておらず（`featureFlag.plugins.
-		 * isolatePluginWebViews` の既定は false）、iframe の src が `file://` で親と同一
-		 * オリジンになるため `frameElement` から親の要素へ辿れる。隔離が有効な環境では
-		 * `frameElement` が null になるので、そのときは本体の中央寄せのままにする。
-		 * 見た目が変わるだけで、検索は同じに動く。
-		 */
-		let topAnchored = false;
-		const anchorToTop = () => {
-			try {
-				const frame = window.frameElement;
-				const dialog = frame && frame.closest('dialog');
-				if (!dialog) return;
-				dialog.style.alignItems = 'flex-start';
-				dialog.style.paddingTop = `${Math.round(TOP_RATIO * 100)}vh`;
-				topAnchored = true;
-			} catch (error) {
-				/* 隔離時は参照できない。中央寄せのままにする。 */
-			}
-		};
 
 		const applySize = () => {
 			anchorToTop();
