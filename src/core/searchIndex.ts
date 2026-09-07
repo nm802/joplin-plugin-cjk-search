@@ -9,7 +9,7 @@ const quote = (s: string) => `"${s.replace(/"/g, '""')}"`;
  * 正規化・トークン化の出力が変わったら上げる。上げ忘れると、古い索引を使い続けて
  * 静かに取りこぼす。
  */
-export const ANALYZER_VERSION = 2;
+export const ANALYZER_VERSION = 3;
 
 /** 索引の列構成が変わったら上げる。 */
 export const SCHEMA_VERSION = 1;

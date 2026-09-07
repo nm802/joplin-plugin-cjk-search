@@ -65,10 +65,40 @@ function joinLines(lines: string[]): string {
 }
 
 /**
+ * ひらがなをカタカナへ畳む。
+ *
+ * NFKC は半角カナと濁点までしか畳まず、ひらがなとカタカナは別の符号位置で残る。
+ * 索引の目的から見てこの2つを別の語として持つ理由が無い。`ぁ`〜`ゖ` と繰り返し記号
+ * `ゝゞ` は、対応するカタカナがちょうど 0x60 先にある。`ゔ` は `ヴ` になる。
+ * `ヷヸヹヺ` にはひらがなが無いので、この向きでは何も起きない。
+ * `ゟ` はここへ来ない。NFKC が先に `より` へ展開する。
+ *
+ * 畳む向きをカタカナにするのは、半角カナが NFKC でカタカナへ寄るため。行き先が1つに揃う。
+ */
+const foldKana = (text: string) =>
+  text.replace(/[ぁ-ゖゝゞ]/g, (ch) =>
+    String.fromCodePoint((ch.codePointAt(0) as number) + 0x60),
+  );
+
+/**
  * NFKC は全角英数の半角化・半角カナの全角化・全角スペースの半角化・NFD 濁点の合成・
  * 丸数字の展開をまとめて行う。Lucene の CJKWidthFilter が扱う範囲を包含する。
+ * かなの畳み込みは NFKC の後に掛ける。半角カナが先にカタカナへ寄る必要があるため。
  */
 export function normalize(text: string): string {
   const joined = joinLines(stripInlineMarkup(text).split('\n'));
-  return joined.normalize('NFKC').toLowerCase().replace(/[ \t]+/g, ' ').trim();
+  return foldChars(joined).replace(/[ \t]+/g, ' ').trim();
 }
+
+/**
+ * 文字そのものの畳み込みだけを行う。行や markdown 記号には触らない。
+ *
+ * 抜粋（snippet.ts）が、生の本文と畳み込み後の文字の対応を取りながら使う。
+ * ここと `normalize()` で畳み方が食い違うと、索引に当たった語が抜粋では見つからない。
+ */
+export function foldChars(text: string): string {
+  return foldKana(text.normalize('NFKC').toLowerCase());
+}
+
+/** `stripInlineMarkup` を外から使えるようにする。抜粋の表示元を作るのに要る。 */
+export { stripInlineMarkup };

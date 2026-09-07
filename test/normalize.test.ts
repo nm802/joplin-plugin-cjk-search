@@ -12,13 +12,13 @@ test('半角カナは全角カナになる', () => {
 });
 
 test('全角スペースは半角スペースになる', () => {
-  expect(normalize('雨漏り　対応')).toBe('雨漏り 対応');
+  expect(normalize('雨漏り　対応')).toBe('雨漏リ 対応');
 });
 
 test('NFDの濁点は1文字に合成される', () => {
   const nfd = 'がんぼう'; // 5コードポイント
   expect([...nfd].length).toBe(5);
-  expect(normalize(nfd)).toBe('がんぼう');
+  expect(normalize(nfd)).toBe('ガンボウ');
   expect([...normalize(nfd)].length).toBe(4);
 });
 
@@ -33,24 +33,24 @@ test('半角大文字は小文字になる', () => {
 // issue #2 テストケース #7〜#13（markdown・改行の扱い）
 
 test('強調記号は除去され前後が連結される', () => {
-  expect(normalize('屋根の**防水**工事')).toBe('屋根の防水工事');
+  expect(normalize('屋根の**防水**工事')).toBe('屋根ノ防水工事');
 });
 
 test('見出し記号とリスト記号は除去される', () => {
-  expect(normalize('## 見出し\n- 項目')).toBe('見出し 項目');
+  expect(normalize('## 見出し\n- 項目')).toBe('見出シ 項目');
 });
 
 test('リンク記法は表示文字列だけ残る', () => {
-  expect(normalize('[雨漏り](:/0a1b2c)')).toBe('雨漏り');
+  expect(normalize('[雨漏り](:/0a1b2c)')).toBe('雨漏リ');
 });
 
 test('コードスパンの中身は保持される', () => {
-  expect(normalize('`notes_fts` を見る')).toBe('notes_fts を見る');
+  expect(normalize('`notes_fts` を見る')).toBe('notes_fts ヲ見ル');
 });
 
 // issue #15: 改行は語の区切り。日本語でも空白を入れる
 test('段落内の改行は空白になる', () => {
-  expect(normalize('屋根の防水\n工事を実施')).toBe('屋根の防水 工事を実施');
+  expect(normalize('屋根の防水\n工事を実施')).toBe('屋根ノ防水 工事ヲ実施');
 });
 
 test('ラテン語の行またぎも空白で区切られる', () => {
@@ -58,7 +58,7 @@ test('ラテン語の行またぎも空白で区切られる', () => {
 });
 
 test('空行をまたぐ場合は連結されず区切られる', () => {
-  expect(normalize('雨漏り対応\n\n屋根の防水')).toBe('雨漏り対応 屋根の防水');
+  expect(normalize('雨漏り対応\n\n屋根の防水')).toBe('雨漏リ対応 屋根ノ防水');
 });
 
 test('正規化は冪等である', () => {
