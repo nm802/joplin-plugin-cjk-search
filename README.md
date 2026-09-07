@@ -90,6 +90,13 @@ npm run dist           # ビルドして publish/ へ出力
 
 ダイアログの状態行に出る版が、実際に動いている版です。`.jpl` を入れ替えたあと、Joplin がどのビルドを読み込んだかはここで確認できます。
 
+## Credits
+
+Written by masayanishida.
+Supported by **FDO the Acala**, driven by [Claude Code](https://claude.com/claude-code).
+
+設計の判断と実装は、対話しながら進めました。各コミットの `Co-Authored-By` にも同じ名前が入っています。
+
 ## License
 
 MIT. See `LICENSE`.
