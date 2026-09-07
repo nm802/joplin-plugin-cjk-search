@@ -135,8 +135,8 @@
 			if (mine !== seq) return;
 			results = (response && response.results) || [];
 			selected = 0;
-			status.textContent =
-				query.trim() === '' ? (response && response.hint) || '' : `${response.total} 件`;
+			// 文字列はプラグイン本体で組み立てる（core/statusLine.ts）。ここは出すだけ。
+			status.textContent = (response && response.status) || '';
 			render();
 		};
 

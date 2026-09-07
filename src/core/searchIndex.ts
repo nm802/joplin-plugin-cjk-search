@@ -124,12 +124,7 @@ export class SearchIndex {
    * 永久に直らない（次回以降は時刻が一致して素通りする）。
    */
   public async sync(notes: Iterable<Note>): Promise<SyncReport> {
-    const known = new Map<string, number>();
-    for (const row of await this.db.all<{ note_id: string; updated_time: number }>(
-      'SELECT note_id, updated_time FROM notes_ng',
-    )) {
-      known.set(row.note_id, row.updated_time);
-    }
+    const known = await this.updatedTimes();
 
     const report: SyncReport = { added: 0, updated: 0, removed: 0, unchanged: 0 };
     const seen = new Set<string>();
@@ -161,6 +156,14 @@ export class SearchIndex {
       throw error;
     }
     return report;
+  }
+
+  /** 索引に入っている id と更新日時。実データとの突き合わせに使う。 */
+  public async updatedTimes(): Promise<Map<string, number>> {
+    const rows = await this.db.all<{ note_id: string; updated_time: number }>(
+      'SELECT note_id, updated_time FROM notes_ng',
+    );
+    return new Map(rows.map((r) => [r.note_id, r.updated_time]));
   }
 
   /** ノート1件を索引に入れる。既に入っていれば置き換える。 */

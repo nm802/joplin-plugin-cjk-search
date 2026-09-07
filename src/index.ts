@@ -2,7 +2,9 @@ import joplin from 'api';
 import { SettingItemType, ToolbarButtonLocation } from 'api/types';
 import { SearchIndex } from './core/searchIndex';
 import { Sqlite3Db } from './joplin/sqlite3Db';
-import { fetchAllNotes } from './joplin/noteSource';
+import { fetchAllNotes, joplinNoteSource } from './joplin/noteSource';
+import { IndexUpdater } from './core/indexUpdater';
+import { statusLine } from './core/statusLine';
 import { snippetFor } from './core/snippet';
 import manifest from './manifest.json';
 
@@ -10,8 +12,16 @@ const COMMAND = 'cjkSearch.open';
 const DIALOG = 'cjkSearch.dialog';
 /** 結果は全件返るが、ダイアログに並べるのはこの件数まで。索引側に上限は設けない。 */
 const DISPLAY_LIMIT = 50;
+/**
+ * 索引と実データを突き合わせる間隔。
+ *
+ * `onNoteChange` は選択中のノートしか通さないので、同期で降ってきたノート・別ウィンドウ
+ * での編集・一括操作はイベントが来ない。ここで埋める。
+ */
+const RECONCILE_INTERVAL_MS = 60 * 1000;
 
 let index: SearchIndex | null = null;
+let updater: IndexUpdater | null = null;
 /** 初回構築中でも検索を受け付ける。結果が不完全でも止めない。 */
 let indexing = false;
 
@@ -25,9 +35,12 @@ const meta = new Map<string, NoteMeta>();
 
 /** 空クエリのときにダイアログへ出す状態。無反応と索引未完了を見分けられるようにする。 */
 function statusHint(): string {
-  const version = (manifest as { version: string }).version;
-  if (indexing) return `v${version} — indexing… (${meta.size} notes so far)`;
-  return `v${version} — ${meta.size} notes indexed`;
+  return statusLine({
+    version: (manifest as { version: string }).version,
+    indexing,
+    indexedCount: meta.size,
+    lastError: updater?.state().error ?? undefined,
+  });
 }
 
 async function loadNotes() {
@@ -37,9 +50,16 @@ async function loadNotes() {
   return notes;
 }
 
+/**
+ * 全件を取り直して索引に合わせる。起動時の1回だけに使う。
+ *
+ * 走っている間は単発の更新を止める。止めないと、全件構築のトランザクションの内側へ
+ * 単発の更新が紛れ込む。止めている間もイベントは積まれるので取りこぼさない。
+ */
 async function rebuild(reason: string) {
   if (!index || indexing) return;
   indexing = true;
+  updater?.hold();
   try {
     console.info(`CJK Search: ${reason}`);
     const notes = await loadNotes();
@@ -49,6 +69,7 @@ async function rebuild(reason: string) {
     console.error('CJK Search: indexing failed', error);
   } finally {
     indexing = false;
+    updater?.release();
   }
 }
 
@@ -135,7 +156,7 @@ joplin.plugins.register({
       if (msg.type === 'search') {
         const query = msg.query ?? '';
         if (!index || query.trim() === '') {
-          return { results: [], total: 0, hint: statusHint() };
+          return { results: [], total: 0, status: statusHint() };
         }
         const ids = await index.search(query);
         const results = ids.slice(0, DISPLAY_LIMIT).map((id) => {
@@ -146,7 +167,11 @@ joplin.plugins.register({
             snippet: snippetFor(note?.body ?? '', query),
           };
         });
-        return { results, total: ids.length };
+        return {
+          results,
+          total: ids.length,
+          status: statusLine({ total: ids.length, shown: results.length }),
+        };
       }
       return { ok: false };
     });
@@ -171,12 +196,21 @@ joplin.plugins.register({
       ToolbarButtonLocation.NoteToolbar,
     );
 
-    await joplin.workspace.onNoteChange(async () => {
-      await rebuild('note changed');
+    updater = new IndexUpdater(index, joplinNoteSource(joplin.data as never), {
+      onPut: (note) => meta.set(note.id, { id: note.id, title: note.title, body: note.body }),
+      onRemove: (id) => meta.delete(id),
     });
+
+    await joplin.workspace.onNoteChange(async (event: { id: string; event: number }) => {
+      updater?.noteChanged(event.id, event.event);
+    });
+    // 同期の直後は降ってきたノートがまとまって入る。イベントは来ないので突き合わせる。
     await joplin.workspace.onSyncComplete(async () => {
-      await rebuild('sync completed');
+      await updater?.reconcile();
     });
+    setInterval(() => {
+      void updater?.reconcile();
+    }, RECONCILE_INTERVAL_MS);
 
     // UI をブロックしない。初回構築中に検索が呼ばれたら、その時点の索引で引く。
     void rebuild('initial indexing');

@@ -2,7 +2,7 @@
 	"manifest_version": 1,
 	"id": "io.github.nm802.cjk-search",
 	"app_min_version": "2.13",
-	"version": "0.1.7",
+	"version": "0.1.8",
 	"name": "CJK Search",
 	"description": "Language-agnostic full-text search. Finds Japanese, Chinese, Korean and mixed-script text that the built-in search misses.",
 	"author": "masayanishida",
