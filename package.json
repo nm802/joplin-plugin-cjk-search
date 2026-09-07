@@ -1,15 +1,19 @@
 {
   "name": "joplin-plugin-cjk-search",
   "version": "0.1.9",
-  "private": true,
   "description": "Language-agnostic full-text search for Joplin",
   "license": "MIT",
   "author": "masayanishida",
   "engines": {
     "node": ">=22.12"
   },
+  "files": [
+    "publish/io.github.nm802.cjk-search.jpl",
+    "publish/io.github.nm802.cjk-search.json"
+  ],
   "scripts": {
     "test": "NODE_OPTIONS=--no-warnings jest",
+    "prepare": "npm run dist",
     "typecheck": "tsc --noEmit",
     "dist": "webpack --env joplin-plugin-config=buildMain && webpack --env joplin-plugin-config=buildExtraScripts && webpack --env joplin-plugin-config=createArchive && node tools/version.js stamp",
     "updateVersion": "webpack --env joplin-plugin-config=updateVersion",
